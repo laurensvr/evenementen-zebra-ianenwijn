@@ -63,14 +63,12 @@ export default function Home() {
 
   useEffect(() => {
     if (searchQuery) {
-      fetch(`/api/badges?q=${encodeURIComponent(searchQuery)}`)
-        .then(res => res.json())
-        .then(data => {
-          const filtered = attendees.filter(attendee => 
-            data.some(status => status.company_number === attendee.number)
-          );
-          setFilteredAttendees(sortAttendees(filtered, badgeStatus));
-        });
+      const query = searchQuery.toLowerCase();
+      const filtered = attendees.filter(attendee => 
+        attendee.company.toLowerCase().includes(query) ||
+        attendee.number.toString().includes(query)
+      );
+      setFilteredAttendees(sortAttendees(filtered, badgeStatus));
     } else {
       setFilteredAttendees(sortAttendees(attendees, badgeStatus));
     }
