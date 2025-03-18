@@ -1,0 +1,7 @@
+node_modules
+.env
+data/wine-event.db
+data/print_history.json
+assets/sample/
+/.next/
+assets/Documentation/
