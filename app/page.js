@@ -88,9 +88,35 @@ export default function Home() {
   };
 
   const generateVisitorBadgeZPL = (companyName, number) => {
+    // Split company name into words and create a word-wrapped version
+    const words = companyName.split(' ');
+    let currentLine = '';
+    let lines = [];
+    
+    words.forEach((word, index) => {
+      if (currentLine === '') {
+        currentLine = word;
+      } else {
+        // Check if adding the word would exceed 20 characters (approximate width)
+        if ((currentLine + ' ' + word).length <= 20) {
+          currentLine += ' ' + word;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      
+      // Add the last line
+      if (index === words.length - 1) {
+        lines.push(currentLine);
+      }
+    });
+
+    // Generate ZPL with word-wrapped company name and centered badge number
     return `^XA
-^FO50,50^ADN,36,20^FD${companyName}^FS
-^FO50,100^ADN,36,20^FD#${number}^FS
+^FO50,30^ADN,36,20^FD${lines[0]}^FS
+${lines.slice(1).map((line, i) => `^FO50,${60 + (i * 40)}^ADN,36,20^FD${line}^FS`).join('\n')}
+^FO50,${60 + (lines.length * 40)}^ADN,48,24^FD#${number}^FS
 ^XZ`;
   };
 
@@ -132,26 +158,39 @@ export default function Home() {
         };
       }
 
-      selectedPrinter.send(zpl, function() {
-        fetch('/api/print', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(printData),
-        })
-        .then(res => res.json())
-        .then(result => {
-          setPrintHistory(prev => [...prev, result]);
-          if (modalType === 'badge') {
-            fetch('/api/badges')
-              .then(res => res.json())
-              .then(data => setBadgeStatus(data));
-          }
-          setShowModal(false);
+      // Function to handle a single print
+      const printLabel = () => {
+        return new Promise((resolve, reject) => {
+          selectedPrinter.send(zpl, resolve, reject);
         });
-      }, function(error) {
-        alert('Error printing: ' + error);
+      };
+
+      // Print multiple labels with a delay between each
+      for (let i = 0; i < numberOfPeople; i++) {
+        await printLabel();
+        // Add a small delay between prints to prevent printer buffer issues
+        if (i < numberOfPeople - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // After all prints are done, save to history
+      fetch('/api/print', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(printData),
+      })
+      .then(res => res.json())
+      .then(result => {
+        setPrintHistory(prev => [...prev, result]);
+        if (modalType === 'badge') {
+          fetch('/api/badges')
+            .then(res => res.json())
+            .then(data => setBadgeStatus(data));
+        }
+        setShowModal(false);
       });
 
     } catch (error) {
