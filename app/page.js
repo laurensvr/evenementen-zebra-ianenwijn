@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PrinterIcon, UserGroupIcon, BeakerIcon, MagnifyingGlassIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import PrinterSetup from './components/PrinterSetup';
+import parseRangeInput from './utils/rangeParser';
 
 export default function Home() {
   const [wines, setWines] = useState([]);
@@ -17,6 +18,14 @@ export default function Home() {
   const [badgeStatus, setBadgeStatus] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAttendees, setFilteredAttendees] = useState([]);
+  const [wineSearchQuery, setWineSearchQuery] = useState('');
+  const [wineRangeInput, setWineRangeInput] = useState('');
+  const [selectedWines, setSelectedWines] = useState([]);
+  const [filteredWines, setFilteredWines] = useState([]);
+
+  // Add refs for input fields
+  const badgeQuantityRef = useRef(null);
+  const wineQuantityRef = useRef(null);
 
   useEffect(() => {
     fetch('/api/wines')
@@ -39,6 +48,19 @@ export default function Home() {
       .then(data => setBadgeStatus(data));
   }, []);
 
+  const sortAttendees = (attendees, badgeStatus) => {
+    return [...attendees].sort((a, b) => {
+      const aStatus = badgeStatus.find(s => s.company_number === a.number);
+      const bStatus = badgeStatus.find(s => s.company_number === b.number);
+      
+      if (!!aStatus?.is_printed === !!bStatus?.is_printed) {
+        return a.company.localeCompare(b.company);
+      }
+      
+      return aStatus?.is_printed ? 1 : -1;
+    });
+  };
+
   useEffect(() => {
     if (searchQuery) {
       fetch(`/api/badges?q=${encodeURIComponent(searchQuery)}`)
@@ -47,12 +69,12 @@ export default function Home() {
           const filtered = attendees.filter(attendee => 
             data.some(status => status.company_number === attendee.number)
           );
-          setFilteredAttendees(filtered);
+          setFilteredAttendees(sortAttendees(filtered, badgeStatus));
         });
     } else {
-      setFilteredAttendees(attendees);
+      setFilteredAttendees(sortAttendees(attendees, badgeStatus));
     }
-  }, [searchQuery, attendees]);
+  }, [searchQuery, attendees, badgeStatus]);
 
   const handleResetBadges = async () => {
     if (window.confirm('Are you sure you want to reset all badge statuses?')) {
@@ -140,6 +162,107 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    if (wineSearchQuery) {
+      const filtered = wines.filter(wine => 
+        wine.name.toLowerCase().includes(wineSearchQuery.toLowerCase()) ||
+        wine.number.toString().includes(wineSearchQuery)
+      );
+      setFilteredWines(filtered);
+    } else {
+      setFilteredWines(wines);
+    }
+  }, [wineSearchQuery, wines]);
+
+  const handleWineRangeInput = (e) => {
+    const input = e.target.value;
+    setWineRangeInput(input);
+    
+    if (input.trim()) {
+      const numbers = parseRangeInput(input);
+      const selected = wines.filter(wine => numbers.includes(parseInt(wine.number)));
+      setSelectedWines(selected);
+    } else {
+      setSelectedWines([]);
+    }
+  };
+
+  const handleBulkWinePrint = async () => {
+    if (!selectedPrinter) {
+      alert('Please select a printer first');
+      return;
+    }
+
+    if (selectedWines.length === 0) {
+      alert('Please select at least one wine to print');
+      return;
+    }
+
+    try {
+      for (const wine of selectedWines) {
+        const zpl = generateWineLabelZPL(wine.number, wine.name);
+        
+        const printLabel = () => {
+          return new Promise((resolve, reject) => {
+            selectedPrinter.send(zpl, resolve, reject);
+          });
+        };
+
+        await printLabel();
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const printData = {
+        type: 'wine',
+        wineId: selectedWines[0].id,
+        wineName: selectedWines.map(w => w.name).join(', '),
+        wineNumber: selectedWines.map(w => w.number).join(', '),
+        numberOfLabels: selectedWines.length,
+        timestamp: new Date().toISOString()
+      };
+
+      fetch('/api/print', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(printData),
+      })
+      .then(res => res.json())
+      .then(result => {
+        setPrintHistory(prev => [...prev, result]);
+        setWineRangeInput('');
+        setSelectedWines([]);
+      });
+
+    } catch (error) {
+      console.error('Printing failed:', error);
+      alert('Failed to print: ' + error.message);
+    }
+  };
+
+  const handleAttendeeClick = (attendee) => {
+    setSelectedAttendee(attendee);
+    setModalType('badge');
+    setShowModal(true);
+    // Focus and select all text in the badge quantity input after a short delay
+    setTimeout(() => {
+      badgeQuantityRef.current?.focus();
+      badgeQuantityRef.current?.select();
+    }, 100);
+  };
+
+  const handleWineClick = (wine) => {
+    setSelectedWine(wine);
+    setModalType('wine');
+    setShowModal(true);
+    // Focus and select all text in the wine quantity input after a short delay
+    setTimeout(() => {
+      wineQuantityRef.current?.focus();
+      wineQuantityRef.current?.select();
+    }, 100);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -147,7 +270,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
               <PrinterIcon className="h-8 w-8 text-primary-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Wine Event Label Printer</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Ian en Wijn Label Printer</h1>
             </div>
             <button
               onClick={handleResetBadges}
@@ -167,19 +290,54 @@ export default function Home() {
                 <BeakerIcon className="h-6 w-6 text-primary-600" />
                 <h2 className="card-title">Wine Labels</h2>
               </div>
-              <div className="space-y-2">
-                {wines.map((wine) => (
+              
+              <div className="mb-6">
+                <div className="relative mb-4">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={wineSearchQuery}
+                    onChange={(e) => setWineSearchQuery(e.target.value)}
+                    placeholder="Search wines..."
+                    className="input pl-10"
+                  />
+                </div>
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="text"
+                    value={wineRangeInput}
+                    onChange={handleWineRangeInput}
+                    placeholder="Enter wine numbers (e.g., 1-100, 12-14, 1,4,5,6,7)"
+                    className="input flex-1"
+                  />
+                  <button
+                    onClick={handleBulkWinePrint}
+                    disabled={selectedWines.length === 0}
+                    className="btn btn-primary"
+                  >
+                    Print Selected
+                  </button>
+                </div>
+                {selectedWines.length > 0 && (
+                  <div className="text-sm text-gray-600">
+                    Selected wines: {selectedWines.map(w => w.name).join(', ')}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+                {filteredWines.map((wine) => (
                   <button
                     key={wine.id}
-                    onClick={() => {
-                      setSelectedWine(wine);
-                      setModalType('wine');
-                      setShowModal(true);
-                    }}
+                    onClick={() => handleWineClick(wine)}
                     className={`w-full text-left p-3 rounded-lg border transition-colors duration-200 ${
                       selectedWine?.id === wine.id
                         ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                        : selectedWines.some(w => w.id === wine.id)
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
                     }`}
                   >
                     <div className="text-sm text-gray-900">{wine.name}</div>
@@ -207,17 +365,13 @@ export default function Home() {
                   className="input pl-10"
                 />
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                 {filteredAttendees.map((attendee) => {
                   const status = badgeStatus.find(s => s.company_number === attendee.number);
                   return (
                     <button
                       key={attendee.id}
-                      onClick={() => {
-                        setSelectedAttendee(attendee);
-                        setModalType('badge');
-                        setShowModal(true);
-                      }}
+                      onClick={() => handleAttendeeClick(attendee)}
                       className={`w-full text-left p-4 rounded-lg border transition-colors duration-200 ${
                         selectedAttendee?.id === attendee.id
                           ? 'border-primary-500 bg-primary-50'
@@ -230,7 +384,8 @@ export default function Home() {
                       <div className="text-sm text-gray-500">Badge #: {attendee.number}</div>
                       {status?.is_printed && (
                         <div className="text-xs text-green-600 mt-1">
-                          Printed on {new Date(status.printed_at).toLocaleString()}
+                          Printed on {new Date(status.printed_at).toLocaleString('nl-NL')}
+                          {status.quantity > 1 && ` • ${status.quantity} badges`}
                         </div>
                       )}
                     </button>
@@ -247,12 +402,12 @@ export default function Home() {
               {printHistory.map((record, index) => (
                 <div key={index} className="border-b border-gray-200 pb-4 last:border-0">
                   <div className="font-medium text-gray-900">
-                    {record.type === 'wine' ? record.wineName : record.companyName}
+                    {record.type === 'wine' ? record.item_name : record.item_name}
                   </div>
                   <div className="text-sm text-gray-500">
                     {record.type === 'wine' 
-                      ? `${record.numberOfLabels} wine labels`
-                      : `${record.numberOfBadges} visitor badges`} • 
+                      ? `${record.quantity} wine labels`
+                      : `${record.quantity} visitor badges`} • 
                     {new Date(record.timestamp).toLocaleString()}
                   </div>
                 </div>
@@ -264,38 +419,42 @@ export default function Home() {
 
       {/* Print Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Print {modalType === 'wine' ? 'Wine Labels' : 'Visitor Badges'}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">
+              {modalType === 'badge' ? 'Print Visitor Badge' : 'Print Wine Label'}
             </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Number of {modalType === 'wine' ? 'Labels' : 'Badges'}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={numberOfPeople}
-                  onChange={(e) => setNumberOfPeople(parseInt(e.target.value))}
-                  className="input"
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePrint}
-                  className="btn btn-primary"
-                >
-                  Print
-                </button>
-              </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {modalType === 'badge' ? 'Number of Badges' : 'Number of Labels'}
+              </label>
+              <input
+                ref={modalType === 'badge' ? badgeQuantityRef : wineQuantityRef}
+                type="number"
+                min="1"
+                value={numberOfPeople}
+                onChange={(e) => setNumberOfPeople(parseInt(e.target.value) || 1)}
+                className="input w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePrint();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePrint}
+                className="btn btn-primary"
+              >
+                Print
+              </button>
             </div>
           </div>
         </div>
