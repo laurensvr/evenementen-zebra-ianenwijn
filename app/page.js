@@ -19,6 +19,16 @@ export default function Home() {
   // Add ref for input field
   const badgeQuantityRef = useRef(null);
 
+  const fetchPrintHistory = async () => {
+    try {
+      const response = await fetch('/api/history');
+      const data = await response.json();
+      setPrintHistory(data.filter(record => record.type === 'badge'));
+    } catch (error) {
+      console.error('Error fetching print history:', error);
+    }
+  };
+
   useEffect(() => {
     fetch('/api/attendees')
       .then(res => res.json())
@@ -27,9 +37,7 @@ export default function Home() {
         setFilteredAttendees(data);
       });
 
-    fetch('/api/history')
-      .then(res => res.json())
-      .then(data => setPrintHistory(data.filter(record => record.type === 'badge')));
+    fetchPrintHistory();
 
     fetch('/api/badges')
       .then(res => res.json())
@@ -115,12 +123,76 @@ export default function Home() {
     // Added 40 dots (0.5cm) padding at the top
     return `^XA
 ^FO20,40^A0N,36,36^FD${lines[0]}^FS
-${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS`).join('\n')}
+${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS`).join('\n')}
 ^FO20,${80 + (lines.length * 30)}^A0N,84,84^FD#${number}^FS
 ^XZ`;
   };
 
-    
+  const generateEmployeeLabelZPL = (employeeName, function_) => {
+    return `^XA
+^FO20,40^A0N,36,36^FDIan en Wijn^FS
+^FO20,120^A0N,46,46^FD${employeeName}^FS
+^FO20,170^A0N,31,31^FD${function_}^FS
+^XZ`;
+  };
+
+  const handlePrintEmployeeLabel = async (employeeName, function_) => {
+    if (!selectedPrinter) {
+      alert('Please select a printer first');
+      return;
+    }
+
+    try {
+      const zpl = generateEmployeeLabelZPL(employeeName, function_);
+      const printData = {
+        type: 'employee',
+        item_name: `${employeeName}${function_ ? ` - ${function_}` : ''}`,
+        quantity: 1,
+        timestamp: new Date().toISOString(),
+        item_id: Date.now(),
+        item_number: 0,
+        printer: selectedPrinter,
+        zpl: zpl
+      };
+
+      console.log('Sending print request:', printData);
+
+      // Function to handle the actual printing
+      const printLabel = () => {
+        return new Promise((resolve, reject) => {
+          selectedPrinter.send(zpl, resolve, reject);
+        });
+      };
+
+      // Print the label
+      await printLabel();
+
+      // Save to print history
+      const response = await fetch('/api/print', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(printData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.details || result.error || 'Failed to save print history');
+      }
+
+      // Clear the input fields
+      document.getElementById('employeeName').value = '';
+      document.getElementById('function').value = '';
+
+      // Refresh print history
+      fetchPrintHistory();
+    } catch (error) {
+      console.error('Error printing employee label:', error);
+      alert(`Failed to print employee label: ${error.message}`);
+    }
+  };
 
   const handlePrint = async () => {
     if (!selectedPrinter) {
@@ -222,6 +294,52 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
           {/* Print Statistics */}
           <PrintStats attendees={attendees} badgeStatus={badgeStatus} />
           
+          {/* Employee Label Section */}
+          <div className="card p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4">Print Employee Label</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee Name *
+                </label>
+                <input
+                  type="text"
+                  id="employeeName"
+                  className="input w-full"
+                  placeholder="Enter employee name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Function (Optional)
+                </label>
+                <input
+                  type="text"
+                  id="function"
+                  className="input w-full"
+                  placeholder="Enter function"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={() => {
+                  const employeeName = document.getElementById('employeeName').value;
+                  const function_ = document.getElementById('function').value;
+                  if (!employeeName) {
+                    alert('Please enter the employee name');
+                    return;
+                  }
+                  handlePrintEmployeeLabel(employeeName, function_);
+                }}
+                className="btn btn-primary"
+              >
+                Print Employee Label
+              </button>
+            </div>
+          </div>
+
           {/* Visitor Badges Section */}
           <div className="card">
             <div className="flex items-center space-x-2 mb-4">
