@@ -23,7 +23,8 @@ export default function Home() {
     try {
       const response = await fetch('/api/history');
       const data = await response.json();
-      setPrintHistory(data.filter(record => record.type === 'badge'));
+      // Keep all records in print history
+      setPrintHistory(data);
     } catch (error) {
       console.error('Error fetching print history:', error);
     }
@@ -395,7 +396,7 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS
                 <div key={index} className="border-b border-gray-200 pb-4 last:border-0">
                   <div className="font-medium text-gray-900">{record.item_name}</div>
                   <div className="text-sm text-gray-500">
-                    {record.quantity} visitor badges • 
+                    {record.type === 'badge' ? `${record.quantity} visitor badges` : 'Employee label'} • 
                     {new Date(record.timestamp).toLocaleString()}
                   </div>
                 </div>
