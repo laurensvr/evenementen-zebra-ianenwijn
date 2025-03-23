@@ -15,6 +15,9 @@ export default function Home() {
   const [badgeStatus, setBadgeStatus] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAttendees, setFilteredAttendees] = useState([]);
+  const [employeeName, setEmployeeName] = useState('');
+  const [employeeFunction, setEmployeeFunction] = useState('');
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
 
   // Add ref for input field
   const badgeQuantityRef = useRef(null);
@@ -120,7 +123,44 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
 ^XZ`;
   };
 
-    
+  const generateEmployeeLabelZPL = (employeeName, function_) => {
+    return `^XA
+^FO20,40^A0N,36,36^FDIan en Wijn^FS
+^FO20,120^A0N,46,46^FD${employeeName}^FS
+^FO20,170^A0N,31,31^FD${function_}^FS
+^XZ`;
+  };
+
+  const handleEmployeePrint = async () => {
+    if (!selectedPrinter) {
+      alert('Please select a printer first');
+      return;
+    }
+
+    if (!employeeName || !employeeFunction) {
+      alert('Please fill in both name and function');
+      return;
+    }
+
+    try {
+      const zpl = generateEmployeeLabelZPL(employeeName, employeeFunction);
+      
+      // Function to handle a single print
+      const printLabel = () => {
+        return new Promise((resolve, reject) => {
+          selectedPrinter.send(zpl, resolve, reject);
+        });
+      };
+
+      await printLabel();
+      setShowEmployeeModal(false);
+      setEmployeeName('');
+      setEmployeeFunction('');
+    } catch (error) {
+      console.error('Printing failed:', error);
+      alert('Failed to print: ' + error.message);
+    }
+  };
 
   const handlePrint = async () => {
     if (!selectedPrinter) {
@@ -222,6 +262,22 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
           {/* Print Statistics */}
           <PrintStats attendees={attendees} badgeStatus={badgeStatus} />
           
+          {/* Employee Labels Section */}
+          <div className="card mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <UserGroupIcon className="h-6 w-6 text-primary-600" />
+                <h2 className="card-title">Employee Labels</h2>
+              </div>
+              <button
+                onClick={() => setShowEmployeeModal(true)}
+                className="btn btn-primary"
+              >
+                Print Employee Label
+              </button>
+            </div>
+          </div>
+          
           {/* Visitor Badges Section */}
           <div className="card">
             <div className="flex items-center space-x-2 mb-4">
@@ -286,6 +342,59 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
           </div>
         </div>
       </div>
+
+      {/* Employee Label Modal */}
+      {showEmployeeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Print Employee Label</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee Name
+                </label>
+                <input
+                  type="text"
+                  value={employeeName}
+                  onChange={(e) => setEmployeeName(e.target.value)}
+                  className="input w-full"
+                  placeholder="Enter employee name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Function
+                </label>
+                <input
+                  type="text"
+                  value={employeeFunction}
+                  onChange={(e) => setEmployeeFunction(e.target.value)}
+                  className="input w-full"
+                  placeholder="Enter function"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowEmployeeModal(false);
+                    setEmployeeName('');
+                    setEmployeeFunction('');
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEmployeePrint}
+                  className="btn btn-primary"
+                >
+                  Print
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print Modal */}
       {showModal && (
