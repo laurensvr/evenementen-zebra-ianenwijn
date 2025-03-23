@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { PrinterIcon, UserGroupIcon, MagnifyingGlassIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import PrinterSetup from './components/PrinterSetup';
+import PrintStats from './components/PrintStats';
 
 export default function Home() {
   const [attendees, setAttendees] = useState([]);
@@ -217,6 +218,9 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
           </div>
           
           <PrinterSetup onPrinterSelected={setSelectedPrinter} />
+          
+          {/* Print Statistics */}
+          <PrintStats attendees={attendees} badgeStatus={badgeStatus} />
           
           {/* Visitor Badges Section */}
           <div className="card">
