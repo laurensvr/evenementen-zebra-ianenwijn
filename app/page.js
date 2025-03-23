@@ -118,15 +118,7 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
 ^FO20,${80 + (lines.length * 30)}^A0N,84,84^FD#${number}^FS
 ^XZ`;
   };
-    // Explain where the font sizes are coming from
-    // ^A0N,42,42^FD#${number}^FS // Explain where the font sizes are coming from
 
-
-    // The font sizes are coming from the ZPL specification
-    // The font size is specified in the ^A command
-    // The font size is specified as 31pt for the company name
-    // The font size is specified as 42pt for the badge number
-    // The font size is specified as 31pt for the badge number
     
 
   const handlePrint = async () => {
@@ -210,7 +202,10 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
               <PrinterIcon className="h-8 w-8 text-primary-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Visitor Badge Printer</h1>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Van Riel Media</h1>
+                <p className="text-lg text-gray-600">Ian en Wijn "Proef de Diepte"</p>
+              </div>
             </div>
             <button
               onClick={handleResetHistory}
