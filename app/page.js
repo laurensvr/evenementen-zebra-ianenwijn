@@ -110,13 +110,24 @@ export default function Home() {
     });
 
     // Generate ZPL with word-wrapped company name and centered badge number
-    // Adjusted X position to 20 (0.5cm) and using smaller font sizes
+    // Adjusted X position to 20 (0.5cm) and using larger font sizes
+    // Added 40 dots (0.5cm) padding at the top
     return `^XA
-^FO20,30^A0N,28,28^FD${lines[0]}^FS
-${lines.slice(1).map((line, i) => `^FO20,${60 + (i * 30)}^A0N,28,28^FD${line}^FS`).join('\n')}
-^FO20,${60 + (lines.length * 30)}^A0N,32,32^FD#${number}^FS
+^FO20,40^A0N,36,36^FD${lines[0]}^FS
+${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS`).join('\n')}
+^FO20,${80 + (lines.length * 30)}^A0N,84,84^FD#${number}^FS
 ^XZ`;
   };
+    // Explain where the font sizes are coming from
+    // ^A0N,42,42^FD#${number}^FS // Explain where the font sizes are coming from
+
+
+    // The font sizes are coming from the ZPL specification
+    // The font size is specified in the ^A command
+    // The font size is specified as 31pt for the company name
+    // The font size is specified as 42pt for the badge number
+    // The font size is specified as 31pt for the badge number
+    
 
   const handlePrint = async () => {
     if (!selectedPrinter) {
