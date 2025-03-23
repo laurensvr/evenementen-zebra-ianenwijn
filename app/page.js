@@ -137,13 +137,13 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
       return;
     }
 
-    if (!employeeName || !employeeFunction) {
-      alert('Please fill in both name and function');
+    if (!employeeName) {
+      alert('Please enter an employee name');
       return;
     }
 
     try {
-      const zpl = generateEmployeeLabelZPL(employeeName, employeeFunction);
+      const zpl = generateEmployeeLabelZPL(employeeName, employeeFunction || '');
       
       // Function to handle a single print
       const printLabel = () => {
@@ -359,11 +359,16 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
                   onChange={(e) => setEmployeeName(e.target.value)}
                   className="input w-full"
                   placeholder="Enter employee name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEmployeePrint();
+                    }
+                  }}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Function
+                  Function (Optional)
                 </label>
                 <input
                   type="text"
@@ -371,6 +376,11 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,31,31^FD${line}^FS
                   onChange={(e) => setEmployeeFunction(e.target.value)}
                   className="input w-full"
                   placeholder="Enter function"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEmployeePrint();
+                    }
+                  }}
                 />
               </div>
               <div className="flex justify-end space-x-3 mt-6">
