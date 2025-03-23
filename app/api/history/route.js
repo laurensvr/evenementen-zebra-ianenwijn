@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getPrintHistory } from '../../../lib/db';
+import { getPrintHistory, clearPrintHistory } from '../../../lib/db';
 
 export async function GET() {
   try {
@@ -8,5 +8,15 @@ export async function GET() {
   } catch (error) {
     console.error('Error reading print history:', error);
     return NextResponse.json({ error: 'Failed to read print history' }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    clearPrintHistory();
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error clearing print history:', error);
+    return NextResponse.json({ error: 'Failed to clear print history' }, { status: 500 });
   }
 } 

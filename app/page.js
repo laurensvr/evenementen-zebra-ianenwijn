@@ -61,15 +61,25 @@ export default function Home() {
     }
   }, [searchQuery, attendees, badgeStatus]);
 
-  const handleResetBadges = async () => {
-    if (window.confirm('Are you sure you want to reset all badge statuses?')) {
+  const handleResetHistory = async () => {
+    if (window.confirm('Are you sure you want to clear all print history?')) {
       try {
-        await fetch('/api/badges', { method: 'DELETE' });
+        // Clear print history
+        const historyRes = await fetch('/api/history', { method: 'DELETE' });
+        if (!historyRes.ok) throw new Error('Failed to clear print history');
+
+        // Reset badge statuses
+        const badgeRes = await fetch('/api/badges', { method: 'DELETE' });
+        if (!badgeRes.ok) throw new Error('Failed to reset badge statuses');
+
+        // Update states
+        setPrintHistory([]);
         setBadgeStatus([]);
-        setPrintHistory(prev => prev.filter(record => record.type !== 'badge'));
+        
+        alert('Successfully cleared print history');
       } catch (error) {
-        console.error('Error resetting badges:', error);
-        alert('Failed to reset badge statuses');
+        console.error('Error resetting history:', error);
+        alert('Failed to clear print history: ' + error.message);
       }
     }
   };
@@ -84,8 +94,8 @@ export default function Home() {
       if (currentLine === '') {
         currentLine = word;
       } else {
-        // Check if adding the word would exceed 20 characters (approximate width)
-        if ((currentLine + ' ' + word).length <= 20) {
+        // Check if adding the word would exceed 25 characters (adjusted for smaller font)
+        if ((currentLine + ' ' + word).length <= 25) {
           currentLine += ' ' + word;
         } else {
           lines.push(currentLine);
@@ -100,10 +110,11 @@ export default function Home() {
     });
 
     // Generate ZPL with word-wrapped company name and centered badge number
+    // Adjusted X position to 20 (0.5cm) and using smaller font sizes
     return `^XA
-^FO50,30^ADN,36,20^FD${lines[0]}^FS
-${lines.slice(1).map((line, i) => `^FO50,${60 + (i * 40)}^ADN,36,20^FD${line}^FS`).join('\n')}
-^FO50,${60 + (lines.length * 40)}^ADN,48,24^FD#${number}^FS
+^FO20,30^A0N,28,28^FD${lines[0]}^FS
+${lines.slice(1).map((line, i) => `^FO20,${60 + (i * 30)}^A0N,28,28^FD${line}^FS`).join('\n')}
+^FO20,${60 + (lines.length * 30)}^A0N,32,32^FD#${number}^FS
 ^XZ`;
   };
 
@@ -191,11 +202,11 @@ ${lines.slice(1).map((line, i) => `^FO50,${60 + (i * 40)}^ADN,36,20^FD${line}^FS
               <h1 className="text-3xl font-bold text-gray-900">Visitor Badge Printer</h1>
             </div>
             <button
-              onClick={handleResetBadges}
+              onClick={handleResetHistory}
               className="btn btn-secondary flex items-center space-x-2"
             >
               <ArrowPathIcon className="h-5 w-5" />
-              <span>Reset Badges</span>
+              <span>Reset Print History</span>
             </button>
           </div>
           

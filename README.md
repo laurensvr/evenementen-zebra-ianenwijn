@@ -1,14 +1,85 @@
-# Wine Label Printer
+# Visitor Badge Printer Application
 
-A web application for printing wine labels during tasting events using a Zebra ZD410 printer.
+A React-based web application for printing visitor badges using Zebra printers. This application allows event organizers to manage and print visitor badges efficiently with real-time tracking of printed badges.
 
 ## Features
 
-- Print wine labels with centered numbers
-- Track print history
-- Monitor attendance
-- Modern, responsive UI with Tailwind CSS
-- Integration with Zebra Browser Print
+- **Printer Setup**: Connect to local Zebra printers using the browser's USB API
+- **Visitor Management**: View and search through the list of visitors/companies
+- **Badge Printing**: Print individual or multiple badges for each visitor
+- **Print History**: Track all printed badges with timestamps
+- **Status Tracking**: Visual indication of printed vs unprinted badges
+- **Search Functionality**: Quick search through companies by name or badge number
+
+## Technical Details
+
+### Components
+
+1. **PrinterSetup**: Handles USB printer connection and selection
+2. **Main Application**: Manages the visitor list, printing operations, and UI state
+
+### Data Flow
+
+1. The application loads three types of data on startup:
+   - List of attendees from `/api/attendees`
+   - Print history from `/api/history`
+   - Badge status from `/api/badges`
+
+2. When a badge is printed:
+   - Generates ZPL code for the badge
+   - Sends to printer via USB connection
+   - Updates print history and badge status via API
+   - Refreshes the UI to reflect changes
+
+### ZPL Printing Specifications
+
+The badge layout uses the following specifications:
+- Starting position: 0.5cm from left edge (20 dots)
+- Company name: 28-point font
+- Badge number: 32-point font
+- Automatic word wrapping for long company names
+- Multiple badge printing with 500ms delay between prints
+
+### API Endpoints
+
+- `GET /api/attendees`: Retrieves list of attendees
+- `GET /api/history`: Retrieves print history
+- `GET /api/badges`: Retrieves badge status
+- `POST /api/print`: Records new print jobs
+- `DELETE /api/badges`: Resets all badge statuses
+
+### Search and Sorting
+
+- Real-time search filtering for companies
+- Automatic sorting:
+  1. Unprinted badges first
+  2. Alphabetical by company name within each group (printed/unprinted)
+
+## Usage
+
+1. Connect a Zebra printer via USB
+2. Select the printer from the setup panel
+3. Search or scroll through the visitor list
+4. Click on a visitor to open the print dialog
+5. Enter the number of badges needed
+6. Click print or press Enter
+
+## Reset Functionality
+
+The "Reset Badges" button allows administrators to:
+- Clear all badge printing history
+- Reset the printed status of all badges
+- Start fresh for a new event or day
+
+## Error Handling
+
+- Printer connection validation
+- Print job error catching and user notification
+- API error handling with user feedback
+
+## Browser Compatibility
+
+Requires a modern browser with USB API support for printer connection.
 
 ## Prerequisites
 
