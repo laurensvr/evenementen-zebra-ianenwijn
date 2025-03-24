@@ -15,6 +15,9 @@ export default function Home() {
   const [badgeStatus, setBadgeStatus] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredAttendees, setFilteredAttendees] = useState([]);
+  const [employeeName, setEmployeeName] = useState('');
+  const [employeeFunction, setEmployeeFunction] = useState('');
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
 
   // Add ref for input field
   const badgeQuantityRef = useRef(null);
@@ -137,17 +140,22 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS
 ^XZ`;
   };
 
-  const handlePrintEmployeeLabel = async (employeeName, function_) => {
+  const handleEmployeePrint = async () => {
     if (!selectedPrinter) {
       alert('Please select a printer first');
       return;
     }
 
+    if (!employeeName) {
+      alert('Please enter an employee name');
+      return;
+    }
+
     try {
-      const zpl = generateEmployeeLabelZPL(employeeName, function_);
+      const zpl = generateEmployeeLabelZPL(employeeName, employeeFunction || '');
       const printData = {
         type: 'employee',
-        item_name: `${employeeName}${function_ ? ` - ${function_}` : ''}`,
+        item_name: `${employeeName}${employeeFunction ? ` - ${employeeFunction}` : ''}`,
         quantity: 1,
         timestamp: new Date().toISOString(),
         item_id: Date.now(),
@@ -158,7 +166,7 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS
 
       console.log('Sending print request:', printData);
 
-      // Function to handle the actual printing
+      // Function to handle a single print
       const printLabel = () => {
         return new Promise((resolve, reject) => {
           selectedPrinter.send(zpl, resolve, reject);
@@ -183,9 +191,10 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS
         throw new Error(result.details || result.error || 'Failed to save print history');
       }
 
-      // Clear the input fields
-      document.getElementById('employeeName').value = '';
-      document.getElementById('function').value = '';
+      // Close modal and clear fields
+      setShowEmployeeModal(false);
+      setEmployeeName('');
+      setEmployeeFunction('');
 
       // Refresh print history
       fetchPrintHistory();
@@ -295,45 +304,15 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS
           {/* Print Statistics */}
           <PrintStats attendees={attendees} badgeStatus={badgeStatus} />
           
-          {/* Employee Label Section */}
-          <div className="card p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Print Employee Label</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employee Name *
-                </label>
-                <input
-                  type="text"
-                  id="employeeName"
-                  className="input w-full"
-                  placeholder="Enter employee name"
-                  required
-                />
+          {/* Employee Labels Section */}
+          <div className="card mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <UserGroupIcon className="h-6 w-6 text-primary-600" />
+                <h2 className="card-title">Employee Labels</h2>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Function (Optional)
-                </label>
-                <input
-                  type="text"
-                  id="function"
-                  className="input w-full"
-                  placeholder="Enter function"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
               <button
-                onClick={() => {
-                  const employeeName = document.getElementById('employeeName').value;
-                  const function_ = document.getElementById('function').value;
-                  if (!employeeName) {
-                    alert('Please enter the employee name');
-                    return;
-                  }
-                  handlePrintEmployeeLabel(employeeName, function_);
-                }}
+                onClick={() => setShowEmployeeModal(true)}
                 className="btn btn-primary"
               >
                 Print Employee Label
@@ -405,6 +384,69 @@ ${lines.slice(1).map((line, i) => `^FO20,${80 + (i * 30)}^A0N,36,36^FD${line}^FS
           </div>
         </div>
       </div>
+
+      {/* Employee Label Modal */}
+      {showEmployeeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Print Employee Label</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee Name
+                </label>
+                <input
+                  type="text"
+                  value={employeeName}
+                  onChange={(e) => setEmployeeName(e.target.value)}
+                  className="input w-full"
+                  placeholder="Enter employee name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEmployeePrint();
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Function (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={employeeFunction}
+                  onChange={(e) => setEmployeeFunction(e.target.value)}
+                  className="input w-full"
+                  placeholder="Enter function"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEmployeePrint();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowEmployeeModal(false);
+                    setEmployeeName('');
+                    setEmployeeFunction('');
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEmployeePrint}
+                  className="btn btn-primary"
+                >
+                  Print
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print Modal */}
       {showModal && (
